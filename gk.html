@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="de" class="h-full bg-slate-900 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GK Tagesschau Dashboard - Politik, Wirtschaft & Deutschland</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Inter Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            tagesschau: {
+              50: '#eef6ff',
+              100: '#d9ebff',
+              500: '#0055a5',
+              600: '#004284',
+              700: '#003366',
+              800: '#00264d',
+              900: '#001933',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    .line-clamp-3 {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body class="h-full font-sans antialiased bg-slate-950 text-slate-100 flex flex-col min-h-screen">
+
+  <header class="sticky top-0 z-30 bg-slate-900/90 backdrop-blur border-b border-slate-800 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        
+        <!-- Logo & Title -->
+        <div class="flex items-center space-x-3">
+          <div class="bg-gradient-to-tr from-blue-700 to-cyan-500 text-white p-2.5 rounded-xl shadow-md shadow-blue-900/30">
+            <i class="fa-solid font-bold fa-newspaper text-xl"></i>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+              GK Newsroom
+              <span class="bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold px-2 py-0.5 rounded-full">Basiskurs</span>
+            </h1>
+            <p class="text-xs text-slate-400">Aktuelle Wochenübersicht • Politik, Wirtschaft & Deutschland</p>
+          </div>
+        </div>
+
+        <!-- Header Actions -->
+        <div class="flex items-center space-x-3">
+          <button onclick="openAddModal()" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-medium px-3.5 py-2 rounded-lg transition-all shadow-md hover:shadow-blue-600/20 active:scale-95">
+            <i class="fa-solid fa-plus"></i>
+            <span class="hidden sm:inline">Artikel hinzufügen</span>
+          </button>
+          
+          <button onclick="refreshData()" title="Aktualisieren" class="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition">
+            <i class="fa-solid fa-rotate-right" id="refresh-icon"></i>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Top Status & Search Bar -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+      
+      <!-- Search Input -->
+      <div class="md:col-span-2 relative">
+        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+          <i class="fa-solid fa-magnifying-glass text-sm"></i>
+        </div>
+        <input type="text" id="search-input" oninput="applyFilters()" placeholder="Nach Schlagwörtern, Personen oder Themen suchen (z. B. Wadephul, Zinsen, Inflation)..." 
+               class="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition">
+      </div>
+
+      <!-- Live Status & Stats -->
+      <div class="flex items-center justify-between md:justify-end gap-3 text-xs text-slate-400 bg-slate-900/50 p-2.5 rounded-xl border border-slate-800/80">
+        <div class="flex items-center gap-2">
+          <span class="relative flex h-2.5 w-2.5">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <span>Stand: <strong class="text-slate-200" id="last-updated">Heute</strong></span>
+        </div>
+        <span class="text-slate-700">|</span>
+        <div><span id="article-count" class="font-bold text-blue-400">6</span> Artikel geladen</div>
+      </div>
+    </div>
+
+    <!-- Filter Section (Days & Categories) -->
+    <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-sm space-y-4">
+      
+      <!-- Category Filter Tabs -->
+      <div class="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3">
+        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider mr-2">Kategorie:</span>
+        <button onclick="setCategory('all')" id="cat-all" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white transition">Alle Kategorien</button>
+        <button onclick="setCategory('politik')" id="cat-politik" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition">Politik</button>
+        <button onclick="setCategory('wirtschaft')" id="cat-wirtschaft" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition">Wirtschaft</button>
+        <button onclick="setCategory('deutschland')" id="cat-deutschland" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition">Deutschland</button>
+        <button onclick="setCategory('international')" id="cat-international" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition">International</button>
+      </div>
+
+      <!-- Day Navigation Bar -->
+      <div class="flex items-center justify-between overflow-x-auto pb-1 pt-1 gap-2 scrollbar-none">
+        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider mr-2 shrink-0">Wochentag:</span>
+        <div class="flex items-center gap-1.5 flex-1 min-w-max" id="day-buttons">
+          <!-- Dynamically Generated Day Buttons -->
+        </div>
+      </div>
+
+    </div>
+
+    <div id="articles-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Article Cards dynamic injection -->
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="hidden text-center py-16 bg-slate-900/40 border border-dashed border-slate-800 rounded-2xl">
+      <i class="fa-solid fa-folder-open text-4xl text-slate-600 mb-3"></i>
+      <h3 class="text-base font-semibold text-slate-300">Keine Artikel gefunden</h3>
+      <p class="text-xs text-slate-500 max-w-md mx-auto mt-1">Versuche die Filtereinstellungen zu ändern oder erstelle einen neuen Artikel mit dem Button oben.</p>
+      <button onclick="resetFilters()" class="mt-4 text-xs font-medium text-blue-400 hover:text-blue-300 underline">Filter zurücksetzen</button>
+    </div>
+
+  </main>
+
+  <!-- PRESENTATION MODAL -->
+  <div id="presentation-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-950/80 backdrop-blur-md p-4 sm:p-6 lg:p-8 flex justify-center items-start">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full shadow-2xl my-auto overflow-hidden flex flex-col max-h-[90vh]">
+      
+      <!-- Modal Header -->
+      <div class="p-5 border-b border-slate-800 bg-slate-900/90 flex items-center justify-between sticky top-0 z-10">
+        <div class="flex items-center gap-3">
+          <span id="modal-category-badge" class="px-2.5 py-1 rounded-md text-xs font-semibold uppercase bg-blue-500/20 text-blue-300 border border-blue-500/30">Politik</span>
+          <span id="modal-date" class="text-xs text-slate-400">Montag, 21.09.2026</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="toggleFullScreenModal()" title="Vollbild" class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition">
+            <i class="fa-solid fa-expand text-sm"></i>
+          </button>
+          <button onclick="closeModal()" class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Content Body -->
+      <div class="p-6 overflow-y-auto space-y-6 text-slate-200">
+        <div>
+          <h2 id="modal-title" class="text-2xl font-extrabold text-white tracking-tight leading-tight mb-2">Artikel-Titel</h2>
+          <p id="modal-subtitle" class="text-sm text-slate-400 italic">Hintergrund & Kontext im GK-Unterricht</p>
+        </div>
+
+        <!-- GK Structured Sections Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          <!-- Kernaussage -->
+          <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 space-y-2">
+            <div class="flex items-center gap-2 text-blue-400 font-semibold text-xs uppercase tracking-wider">
+              <i class="fa-solid fa-bullseye"></i> Kernaussage / Sachverhalt
+            </div>
+            <p id="modal-kernaussage" class="text-sm text-slate-200 leading-relaxed"></p>
+          </div>
+
+          <!-- Akteure -->
+          <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 space-y-2">
+            <div class="flex items-center gap-2 text-indigo-400 font-semibold text-xs uppercase tracking-wider">
+              <i class="fa-solid fa-users"></i> Akteure / Beteiligte
+            </div>
+            <p id="modal-akteure" class="text-sm text-slate-200 leading-relaxed"></p>
+          </div>
+
+        </div>
+
+        <!-- Konsequenzen -->
+        <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 space-y-2">
+          <div class="flex items-center gap-2 text-amber-400 font-semibold text-xs uppercase tracking-wider">
+            <i class="fa-solid fa-diagram-project"></i> Konsequenzen & Folgen
+          </div>
+          <ul id="modal-konsequenzen" class="list-disc list-inside text-sm text-slate-200 space-y-1.5 leading-relaxed">
+            <!-- Dynamic items -->
+          </ul>
+        </div>
+
+        <!-- Diskussionsansatz GK -->
+        <div class="bg-gradient-to-r from-blue-900/40 to-slate-800/80 p-5 rounded-xl border border-blue-500/30 space-y-2">
+          <div class="flex items-center gap-2 text-blue-300 font-bold text-xs uppercase tracking-wider">
+            <i class="fa-solid fa-comments"></i> Diskussionsansatz für den GK-Unterricht
+          </div>
+          <p id="modal-diskussion" class="text-base font-medium text-white italic leading-relaxed"></p>
+        </div>
+
+        <!-- Notes / Besprechungs-Notizen -->
+        <div class="border-t border-slate-800 pt-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <label for="modal-notes" class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+              <i class="fa-solid fa-pen-to-square text-emerald-400"></i> Eigene Notizen für die Besprechung (lokal gespeichert)
+            </label>
+            <span id="notes-saved-indicator" class="text-xs text-emerald-400 opacity-0 transition-opacity flex items-center gap-1">
+              <i class="fa-solid fa-check"></i> Gespeichert
+            </span>
+          </div>
+          <textarea id="modal-notes" rows="3" oninput="saveCurrentArticleNotes()" placeholder="Hier Stichpunkte, Fragen des Lehrers oder eigene Argumente eintragen..."
+                    class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-600 transition"></textarea>
+        </div>
+
+        <!-- Source Link -->
+        <div class="pt-2 flex items-center justify-between text-xs text-slate-400 border-t border-slate-800/60">
+          <span>Quelle: Tagesschau / Öffentlicher Rundfunk</span>
+          <a id="modal-source-link" href="#" target="_blank" class="text-blue-400 hover:underline inline-flex items-center gap-1">
+            Original-Beitrag öffnen <i class="fa-solid fa-arrow-up-right-from-square text-2xs"></i>
+          </a>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 bg-slate-900 border-t border-slate-800 flex justify-end">
+        <button onclick="closeModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-lg transition">
+          Schließen
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ADD ARTICLE MODAL -->
+  <div id="add-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-950/80 backdrop-blur-md p-4 sm:p-6 flex justify-center items-center">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden my-8">
+      
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-plus-circle text-blue-500"></i> Neuen GK-Artikel einpflegen
+        </h3>
+        <button onclick="closeAddModal()" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <form id="add-article-form" onsubmit="handleAddArticle(event)" class="p-6 space-y-4 text-sm">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Titel / Thema *</label>
+            <input type="text" id="add-title" required placeholder="z. B. Neuer Haushaltsentwurf beschlossen" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Wochentag / Datum *</label>
+            <select id="add-day" required class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+              <option value="Montag">Montag</option>
+              <option value="Dienstag">Dienstag</option>
+              <option value="Mittwoch">Mittwoch</option>
+              <option value="Donnerstag">Donnerstag</option>
+              <option value="Freitag">Freitag</option>
+              <option value="Samstag">Samstag</option>
+              <option value="Sonntag">Sonntag</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Kategorie *</label>
+            <select id="add-category" required class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+              <option value="politik">Politik</option>
+              <option value="wirtschaft">Wirtschaft</option>
+              <option value="deutschland">Deutschland</option>
+              <option value="international">International</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Quellen-Link (Optional)</label>
+            <input type="url" id="add-source" placeholder="https://www.tagesschau.de/..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Kernaussage / Sachverhalt *</label>
+          <textarea id="add-kernaussage" required rows="2" placeholder="Kurze zusammenfassende Kernaussage..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Akteure / Beteiligte *</label>
+          <input type="text" id="add-akteure" required placeholder="z. B. Minister X, Parteien, EU-Kommission" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Konsequenzen & Folgen (getrennt durch Komma oder Zeilenumbruch) *</label>
+          <textarea id="add-konsequenzen" required rows="2" placeholder="Diplomatisch: ..., Innenpolitisch: ..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Diskussionsansatz für den Unterricht *</label>
+          <input type="text" id="add-diskussion" required placeholder="z. B. Welche Auswirkung hat diese Maßnahme auf..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+
+        <div class="pt-4 border-t border-slate-800 flex justify-end gap-3">
+          <button type="button" onclick="closeAddModal()" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700">Abbrechen</button>
+          <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg shadow-md">Speichern</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const initialArticles = [
+      {
+        id: "art-1",
+        day: "Montag",
+        date: "21.09.2026",
+        category: "politik",
+        title: "Diplomatische Annäherung: Wadephul-Lavrov Treffen bei den UN",
+        kernaussage: "Der deutsche Außenminister Johann Wadephul führte am Rande der UN-Generaldebatte ein direktes Gespräch mit seinem russischen Amtskollegen Sergey Lavrov, um diplomatische Kanäle offenzuhalten.",
+        akteure: "Johann Wadephul (Außenminister DE), Sergey Lavrov (Außenminister RU), Parteien im Deutschen Bundestag.",
+        konsequenzen: [
+          "Diplomatie: Keine direkte inhaltliche Einigung; Erhalt minimaler Kommunikationskanäle.",
+          "Innenpolitik: Kontroverse Debatte im Bundestag über Sinn und Risiken bilateraler Treffen.",
+          "Sicherheit: Anhaltend hohe Spannungen und Wechselwirkungen bei Kulturinstituten."
+        ],
+        diskussion: "Wie viel Spielraum hat Diplomatie in Krisenzeiten, und wie sollte sich deutsche Außenpolitik zwischen Dialogbereitschaft und klarer Abgrenzung positionieren?",
+        source: "https://www.tagesschau.de",
+        notes: ""
+      },
+      {
+        id: "art-2",
+        day: "Dienstag",
+        date: "22.09.2026",
+        category: "wirtschaft",
+        title: "EZB-Leitzinsentscheidung und Auswirkungen auf den Mittelstand",
+        kernaussage: "Die Europäische Zentralbank hat den Leitzins unverändert belassen. Während die Inflation nachlässt, bleiben die Kreditkosten für kleine und mittlere Unternehmen in Deutschland hoch.",
+        akteure: "Christine Lagarde (EZB-Präsidentin), Bundesfinanzministerium, Mittelstandsverbände.",
+        konsequenzen: [
+          "Wirtschaft: Zurückhaltende Investitionen bei deutschen Unternehmen aufgrund hoher Finanzierungskosten.",
+          "Verbraucher: Stabilisierung der Kaufkraft durch rückläufige Inflationsraten.",
+          "Politik: Rufe nach steuerlichen Entlastungen für Investitionen werden lauter."
+        ],
+        diskussion: "Inwiefern gefährdet eine anhaltend hoch angesetzte Zinspolitik das Wirtschaftswachstum im Vergleich zur Bekämpfung der Inflation?",
+        source: "https://www.tagesschau.de",
+        notes: ""
+      },
+      {
+        id: "art-3",
+        day: "Mittwoch",
+        date: "23.09.2026",
+        category: "deutschland",
+        title: "Debatte über das neue Haushaltsgesetz & Schuldenbremse im Bundestag",
+        kernaussage: "Im Bundestag entbrannte eine hitzige Debatte über den Haushaltsentwurf. Schwerpunkte sind Investitionen in Infrastruktur vs. Einhaltung der verfassungsrechtlichen Schuldenbremse.",
+        akteure: "Bundesregierung, Opposition (CDU/CSU), Bundesverfassungsgericht, Ökonomen.",
+        konsequenzen: [
+          "Innenpolitik: Zunehmender Spagat zwischen Transformationsinvestitionen und Konsolidierung.",
+          "Infrastruktur: Mögliche Kürzungen bei Schienen- und Straßenprojekten.",
+          "Gesellschaft: Diskussion über Generationengerechtigkeit bezüglich Schulden."
+        ],
+        diskussion: "Sollte die Schuldenbremse im Grundgesetz reformiert werden, um Zukunftsinvestitionen zu ermöglichen?",
+        source: "https://www.tagesschau.de",
+        notes: ""
+      },
+      {
+        id: "art-4",
+        day: "Donnerstag",
+        date: "24.09.2026",
+        category: "wirtschaft",
+        title: "Energiewende & Industriestandort Deutschland: Neue Förderpakete",
+        kernaussage: "Das Wirtschaftsministerium hat ein neues Milliardenpaket zur Unterstützung energieintensiver Industriezweige beim Umstieg auf grünen Wasserstoff angekündigt.",
+        akteure: "Bundeswirtschaftsminister, Industrie- und Handelskammern (IHK), Umweltverbände.",
+        konsequenzen: [
+          "Wirtschaft: Schutz vor Abwanderung wichtiger Industriezweige ins Ausland.",
+          "Umwelt: Beschleunigung der Dekarbonisierung im Industriesektor.",
+          "Haushalt: Hoher Subventionsbedarf aus staatlichen Sondervermögen."
+        ],
+        diskussion: "Ist die gezielte Subventionierung von Industrieunternehmen marktkonform und ökologisch nachhaltig?",
+        source: "https://www.tagesschau.de",
+        notes: ""
+      },
+      {
+        id: "art-5",
+        day: "Freitag",
+        date: "25.09.2026",
+        category: "international",
+        title: "EU-Sondergipfel zu Asylpolitik und europäischen Grenzkontrollen",
+        kernaussage: "Die EU-Staats- und Regierungschefs beraten über beschleunigte Asylverfahren an den Außengrenzen und eine gerechtere Verteilung von Geflüchteten auf Mitgliedsstaaten.",
+        akteure: "EU-Kommission, Mitgliedsstaaten, UNHCR, Menschenrechtsorganisationen.",
+        konsequenzen: [
+          "Europarecht: Verschärfung der Verfahren an den Außengrenzen rückt näher.",
+          "Diplomatie: Anhaltende Differenzen zwischen ost- und westeuropäischen Partnern.",
+          "National: Entlastung von Kommunen in Deutschland erhofft."
+        ],
+        diskussion: "Wie kann die EU den Spagat zwischen humanitären Schutzpflichten und geordneter Steuerung der Migration bewältigen?",
+        source: "https://www.tagesschau.de",
+        notes: ""
+      },
+      {
+        id: "art-6",
+        day: "Samstag",
+        date: "26.09.2026",
+        category: "deutschland",
+        title: "Arbeitsmarktzahlen & Fachkräftemangel in der Pflege und IT",
+        kernaussage: "Neuen Berichten der Bundesagentur für Arbeit zufolge bleibt die Nachfrage nach qualifizierten Fachkräften trotz wirtschaftlicher Stagnation hoch.",
+        akteure: "Bundesagentur für Arbeit, Arbeitgeberverbände, Gewerkschaften.",
+        konsequenzen: [
+          "Soziales: Zunehmende Belastung der bestehenden Teams in Gesundheits- und Pflegeberufen.",
+          "Politik: Erhöhter Druck zur Vereinfachung der Visa-Vergabe für ausländische Fachkräfte.",
+          "Bildung: Dringender Bedarf an Weiterbildungs- und Digitalisierungsoffensiven."
+        ],
+        diskussion: "Welche Maßnahmen sind am wirksamsten, um dem demografisch bedingten Fachkräftemangel entgegenzuwirken?",
+        source: "https://www.tagesschau.de",
+        notes: ""
+      }
+    ];
+
+    let articles = [];
+    let selectedCategory = 'all';
+    let selectedDay = 'all';
+    let activeModalArticleId = null;
+
+    const daysList = ['all', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+
+    // Initialize Application
+    window.addEventListener('DOMContentLoaded', () => {
+      loadArticles();
+      renderDayButtons();
+      applyFilters();
+      updateTimestamp();
+    });
+
+    function loadArticles() {
+      const stored = localStorage.getItem('gk_news_articles');
+      if (stored) {
+        try {
+          articles = JSON.parse(stored);
+        } catch(e) {
+          articles = initialArticles;
+        }
+      } else {
+        articles = initialArticles;
+        saveArticles();
+      }
+    }
+
+    function saveArticles() {
+      localStorage.setItem('gk_news_articles', JSON.stringify(articles));
+    }
+
+    function updateTimestamp() {
+      const options = { weekday: 'short', hour: '2-digit', minute: '2-digit' };
+      document.getElementById('last-updated').innerText = new Date().toLocaleTimeString('de-DE', options);
+    }
+
+    function renderDayButtons() {
+      const container = document.getElementById('day-buttons');
+      container.innerHTML = daysList.map(day => {
+        const label = day === 'all' ? 'Alle Tage' : day;
+        const activeClass = day === selectedDay ? 'bg-blue-600 text-white font-semibold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700';
+        return `<button onclick="setDay('${day}')" class="px-3 py-1.5 rounded-lg text-xs transition ${activeClass}">${label}</button>`;
+      }).join('');
+    }
+
+    function setCategory(cat) {
+      selectedCategory = cat;
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('bg-slate-800', 'text-slate-300');
+      });
+      const activeBtn = document.getElementById(`cat-${cat}`);
+      if (activeBtn) {
+        activeBtn.classList.remove('bg-slate-800', 'text-slate-300');
+        activeBtn.classList.add('bg-blue-600', 'text-white');
+      }
+      applyFilters();
+    }
+
+    function setDay(day) {
+      selectedDay = day;
+      renderDayButtons();
+      applyFilters();
+    }
+
+    function resetFilters() {
+      selectedCategory = 'all';
+      selectedDay = 'all';
+      document.getElementById('search-input').value = '';
+      setCategory('all');
+      renderDayButtons();
+      applyFilters();
+    }
+
+    function applyFilters() {
+      const query = document.getElementById('search-input').value.toLowerCase().trim();
+
+      const filtered = articles.filter(art => {
+        const matchesCategory = selectedCategory === 'all' || art.category.toLowerCase() === selectedCategory.toLowerCase();
+        const matchesDay = selectedDay === 'all' || art.day.toLowerCase() === selectedDay.toLowerCase();
+        
+        const matchesSearch = !query || 
+          art.title.toLowerCase().includes(query) ||
+          art.kernaussage.toLowerCase().includes(query) ||
+          art.akteure.toLowerCase().includes(query) ||
+          art.diskussion.toLowerCase().includes(query);
+
+        return matchesCategory && matchesDay && matchesSearch;
+      });
+
+      renderArticles(filtered);
+    }
+
+    function getCategoryBadgeColor(cat) {
+      switch(cat.toLowerCase()) {
+        case 'politik': return 'bg-red-500/10 text-red-400 border-red-500/20';
+        case 'wirtschaft': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+        case 'deutschland': return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+        case 'international': return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+        default: return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+      }
+    }
+
+    function renderArticles(list) {
+      const grid = document.getElementById('articles-grid');
+      const emptyState = document.getElementById('empty-state');
+      document.getElementById('article-count').innerText = list.length;
+
+      if (list.length === 0) {
+        grid.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+
+      grid.innerHTML = list.map(art => {
+        const badgeStyle = getCategoryBadgeColor(art.category);
+        const hasNotes = art.notes && art.notes.trim().length > 0;
+
+        return `
+          <div class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 flex flex-col justify-between transition-all duration-200 hover:shadow-xl hover:shadow-blue-950/20 group">
+            
+            <div class="space-y-3">
+              <!-- Header Meta -->
+              <div class="flex items-center justify-between text-xs">
+                <span class="px-2.5 py-0.5 rounded-md font-medium border ${badgeStyle} uppercase text-3xs tracking-wider">
+                  ${art.category}
+                </span>
+                <span class="text-slate-400 font-medium flex items-center gap-1">
+                  <i class="fa-regular fa-calendar text-2xs"></i> ${art.day}
+                </span>
+              </div>
+
+              <!-- Title -->
+              <h3 class="text-base font-bold text-white group-hover:text-blue-400 transition-colors leading-snug">
+                ${art.title}
+              </h3>
+
+              <!-- Kernaussage -->
+              <p class="text-xs text-slate-300 line-clamp-3 leading-relaxed">
+                ${art.kernaussage}
+              </p>
+
+              <!-- Discussion Highlight -->
+              <div class="bg-slate-800/50 p-2.5 rounded-lg border border-slate-800 text-xs text-slate-300 italic">
+                <span class="text-blue-400 font-semibold not-italic">GK-Frage:</span> "${art.diskussion}"
+              </div>
+            </div>
+
+            <!-- Card Footer -->
+            <div class="pt-4 mt-4 border-t border-slate-800/80 flex items-center justify-between">
+              
+              <div class="flex items-center gap-2 text-xs text-slate-500">
+                ${hasNotes ? `<span class="text-emerald-400 flex items-center gap-1" title="Notizen vorhanden"><i class="fa-solid fa-note-sticky"></i> Notiz</span>` : ''}
+              </div>
+
+              <button onclick="openPresentationModal('${art.id}')" class="inline-flex items-center gap-1.5 bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-lg border border-blue-500/20 hover:border-transparent transition-all">
+                <i class="fa-solid fa-desktop"></i>
+                <span>Präsentieren</span>
+              </button>
+            </div>
+
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openPresentationModal(id) {
+      const art = articles.find(a => a.id === id);
+      if (!art) return;
+
+      activeModalArticleId = id;
+
+      document.getElementById('modal-title').innerText = art.title;
+      document.getElementById('modal-date').innerText = `${art.day}, ${art.date || 'Aktuelle Woche'}`;
+      document.getElementById('modal-category-badge').innerText = art.category;
+      document.getElementById('modal-kernaussage').innerText = art.kernaussage;
+      document.getElementById('modal-akteure').innerText = art.akteure;
+      document.getElementById('modal-diskussion').innerText = `"${art.diskussion}"`;
+      document.getElementById('modal-notes').value = art.notes || '';
+      document.getElementById('modal-source-link').href = art.source || 'https://www.tagesschau.de';
+
+      // Render Konsequenzen List
+      const konseqContainer = document.getElementById('modal-konsequenzen');
+      if (Array.isArray(art.konsequenzen)) {
+        konseqContainer.innerHTML = art.konsequenzen.map(k => `<li>${k}</li>`).join('');
+      } else {
+        konseqContainer.innerHTML = `<li>${art.konsequenzen}</li>`;
+      }
+
+      document.getElementById('presentation-modal').classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('presentation-modal').classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+      activeModalArticleId = null;
+      applyFilters(); // refresh notes badge
+    }
+
+    function saveCurrentArticleNotes() {
+      if (!activeModalArticleId) return;
+      const notesVal = document.getElementById('modal-notes').value;
+      const artIndex = articles.findIndex(a => a.id === activeModalArticleId);
+      if (artIndex !== -1) {
+        articles[artIndex].notes = notesVal;
+        saveArticles();
+
+        const indicator = document.getElementById('notes-saved-indicator');
+        indicator.classList.remove('opacity-0');
+        setTimeout(() => indicator.classList.add('opacity-0'), 1500);
+      }
+    }
+
+    function toggleFullScreenModal() {
+      const modal = document.getElementById('presentation-modal');
+      if (!document.fullscreenElement) {
+        modal.requestFullscreen().catch(err => alert(`Fehler beim Aktivieren des Vollbildmodus: ${err.message}`));
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    function openAddModal() {
+      document.getElementById('add-modal').classList.remove('hidden');
+    }
+
+    function closeAddModal() {
+      document.getElementById('add-modal').classList.add('hidden');
+      document.getElementById('add-article-form').reset();
+    }
+
+    function handleAddArticle(event) {
+      event.preventDefault();
+
+      const konseqRaw = document.getElementById('add-konsequenzen').value;
+      const konseqList = konseqRaw.split('\n').filter(k => k.trim().length > 0);
+
+      const newArt = {
+        id: 'art-' + Date.now(),
+        title: document.getElementById('add-title').value,
+        day: document.getElementById('add-day').value,
+        date: new Date().toLocaleDateString('de-DE'),
+        category: document.getElementById('add-category').value,
+        kernaussage: document.getElementById('add-kernaussage').value,
+        akteure: document.getElementById('add-akteure').value,
+        konsequenzen: konseqList.length > 0 ? konseqList : [konseqRaw],
+        diskussion: document.getElementById('add-diskussion').value,
+        source: document.getElementById('add-source').value || 'https://www.tagesschau.de',
+        notes: ''
+      };
+
+      articles.unshift(newArt);
+      saveArticles();
+      closeAddModal();
+      applyFilters();
+    }
+
+    function refreshData() {
+      const icon = document.getElementById('refresh-icon');
+      icon.classList.add('fa-spin');
+      setTimeout(() => {
+        icon.classList.remove('fa-spin');
+        updateTimestamp();
+        applyFilters();
+      }, 600);
+    }
+  </script>
+</body>
+</html>
